@@ -1,0 +1,2 @@
+# Ignore directories containing Keylime source fetched from remote repo
+*keylime*/
