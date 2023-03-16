@@ -106,7 +106,7 @@ fi
 
 # Build Docker images from Dockerfiles
 echo "🡆 Building Docker images from Dockerfiles..."
-for part in ${comp_arr[@]}; do
+for part in "${comp_arr[@]}"; do
   image_name="keylime_$part:$branch"
 
   echo "Building $image_name..."
@@ -123,7 +123,7 @@ done
 # If a container registry has been provided, push Docker images to the registry
 if [ -n "$registry" ]; then
   echo "🡆 Uploading Docker images to the container registry at $registry..."
-  for part in ${comp_arr[@]}; do
+  for part in "${comp_arr[@]}"; do
     image_name="keylime_$part:$branch"
     registry_image_path="$registry/$image_name"
 
