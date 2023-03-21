@@ -1,4 +1,5 @@
-#!/usr/bin/env bash 
+#!/usr/bin/env bash
+# shellcheck disable=SC2129
 
 help () {
   echo "Builds Keylime Docker images locally and optionally pushes them to GCR."
@@ -9,14 +10,15 @@ help () {
   echo "-r <repo>       : the URL to the remote Git repo containing the source"
   echo "-b <branch>     : the name of the branch to check out (default: \"master\")"
   echo "-d <dir>        : the path to the Keylime source directory (default: \"./keylime\")"
-  echo "-c <components> : a string indicating which Keylime components to build from the source directory; use \"r\" for the registrar, \"v\" for the verifier, \"t\" for the tenant, \"a\" for the agent, or combine these characters to build multiple components (default: \"rvt\")."
+  echo "-c <components> : a string indicating which Keylime components to build from the source directory; use \"v\" for the verifier, \"r\" for the registrar, \"t\" for the tenant, \"a\" for the agent, or combine these characters to build multiple components (default: \"vrt\")."
+  echo "-t <tag>        : a tag to apply to the built images (defaults to the current timestamp)"
   echo "-p <registry>   : the Docker registry to push the images to"
   echo "-h              : display help text"
   echo ""
   echo "Examples:"
   echo ""
   echo "kl-deploy-images.sh -r git@github.com:keylime/keylime.git -p gcr.io/project-keylime"
-  echo "  Retrieves Keylime source code, builds registrar, verifier and tenant images and pushes these to GCR."
+  echo "  Retrieves Keylime source code, builds verifier, registrar and tenant images and pushes these to GCR."
   echo ""
   echo "kl-deploy-images.sh -r git@github.com:keylime/rust-keylime.git -d ./rust-keylime -c a -p gcr.io/project-keylime"
   echo "  Retrieves source code for the Rust agent, builds a Docker image and pushes it to GCR."
@@ -28,16 +30,18 @@ help () {
   echo "  Builds an image for the tenant from a specific source directory and pushes it to GCR."
 }
 
-comp_str="rvt"
+comp_str="vrt"
 branch="master"
 src_dir="./keylime"
+tag=$(date +%s)
 
-while getopts r:b:d:c:p:h opt; do
+while getopts r:b:d:c:t:p:h opt; do
   case "$opt" in
     r) repo="${OPTARG}" ;;
     b) branch="${OPTARG}" ;;
     d) src_dir="${OPTARG}" ;;
     c) comp_str="${OPTARG}" ;;
+    t) tag="${OPTARG}" ;;
     p) registry="${OPTARG}" ;;
     h) help
        exit 0 ;;
@@ -50,17 +54,17 @@ done
 
 comp_arr=()
 
-if [[ "$comp_str" =~ [rvt]{1,} ]]; then
+if [[ "$comp_str" =~ [vrt]{1,} ]]; then
   comp_arr+=("base")
 fi
 
 for (( i=0; i<${#comp_str}; i++ )); do
   case "${comp_str:$i:1}" in
-    "r") comp_arr+=("registrar") ;;
     "v") comp_arr+=("verifier") ;;
+    "r") comp_arr+=("registrar") ;;
     "t") comp_arr+=("tenant") ;;
     "a") comp_arr+=("agent") ;;
-    *) echo "Invalid components string. Must only contain characters \"r\", \"v\", \"t\" and \"a\"." >&2
+    *) echo "Invalid components string. Must only contain characters \"v\", \"r\", \"t\" and \"a\"." >&2
       echo "" >&2
       help >&2
       exit 1
@@ -95,28 +99,50 @@ fi
 # example: sed -i "s/fedora:37/rockylinux:9/g" keylime/docker/release/base/Dockerfile.in
 ###
 
-# Generate Dockerfiles from .in template files if registrar, verifier or tenant images are being built
-if [[ "$comp_str" =~ [rvt]{1,} ]]; then
-  echo "🡆 Generating Dockerfiles from template files..."
+# Perform actions on Keylime's templated Dockerfiles if verifier, registrar or tenant images are being built...
+if [[ "$comp_str" =~ [vrt]{1,} ]]; then
+  # Change to directory containing templates but remember current working directory
   owd=$(pwd)
   cd "$src_dir/docker/release" || exit
+
+  # Generate Dockerfiles from .in template files
+  echo "🡆 Generating Dockerfiles from template files..."
   ./generate-files.sh "$branch"
+
+  echo "🡆 Extending Dockerfiles to modify the default Keylime network config..."
+
+  # Add instructions to base Dockerfile to modify verifier.conf with the correct network settings
+  echo "" >> base/Dockerfile
+  echo "RUN sed -i \"s/^ip = 127.0.0.1$/ip = 0.0.0.0/\" /etc/keylime/verifier.conf && \\" >> base/Dockerfile
+  echo "    sed -i \"s/^registrar_ip = 127.0.0.1$/registrar_ip = keylime_registrar/\" /etc/keylime/verifier.conf && \\" >> base/Dockerfile
+  echo "    sed -i \"s/^registrar_port = 8881$/registrar_port = 8891/\" /etc/keylime/verifier.conf" >> base/Dockerfile
+
+  # Add instructions to base Dockerfile to modify registrar.conf with the correct network settings
+  echo "" >> base/Dockerfile
+  echo "RUN sed -i \"s/^ip = 127.0.0.1$/ip = 0.0.0.0/\" /etc/keylime/registrar.conf" >> base/Dockerfile
+
+  # Add instructions to base Dockerfile to modify tenant.conf with the correct network settings
+  echo "" >> base/Dockerfile
+  echo "RUN sed -i \"s/^verifier_ip = 127.0.0.1$/verifier_ip = keylime_verifier/\" /etc/keylime/tenant.conf && \\" >> base/Dockerfile
+  echo "    sed -i \"s/^registrar_ip = 127.0.0.1$/registrar_ip = keylime_registrar/\" /etc/keylime/tenant.conf" >> base/Dockerfile
+
+  # Change back to previous working directory
   cd "$owd" || exit
 fi
 
 # Build Docker images from Dockerfiles
 echo "🡆 Building Docker images from Dockerfiles..."
 for part in "${comp_arr[@]}"; do
-  image_name="keylime_$part:$branch"
+  image_name="keylime_$part:$tag"
 
   echo "Building $image_name..."
 
-  if [[ "$comp_str" =~ [rvt]{1,} ]]; then
+  if [[ "$comp_str" =~ [vrt]{1,} ]]; then
     docker build -t "$image_name" -f "$src_dir/docker/release/$part/Dockerfile" "$src_dir"
   fi
 
   if [[ "$comp_str" =~ a ]]; then
-    docker build -t "$image_name" -f "$src_dir/docker/fedora/keylime_rust.Dockerfile" "$src_dir/docker/fedora"
+    docker build -t "$image_name" -f "docker/agent.Dockerfile" "$src_dir"
   fi
 done
 
@@ -124,7 +150,7 @@ done
 if [ -n "$registry" ]; then
   echo "🡆 Uploading Docker images to the container registry at $registry..."
   for part in "${comp_arr[@]}"; do
-    image_name="keylime_$part:$branch"
+    image_name="keylime_$part:$tag"
     registry_image_path="$registry/$image_name"
 
     echo "Pushing $image_name to $registry_image_path..."
@@ -133,4 +159,14 @@ if [ -n "$registry" ]; then
   done
 else
   echo "🡆 No container registry has been provided, so skipping push to registry."
+fi
+
+# Output variable files to provide Packer with the identifying tag applied to the images:
+
+if [[ "$comp_str" =~ [vrt]{1,} ]]; then
+  echo "vrt_tag = \"$tag\"" > variables-vrt.auto.pkrvars.hcl
+fi
+
+if [[ "$comp_str" =~ a ]]; then
+  echo "a_tag = \"$tag\"" > variables-a.auto.pkrvars.hcl
 fi
