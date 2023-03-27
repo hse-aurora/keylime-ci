@@ -13,6 +13,7 @@ help () {
   echo "-c <components> : a string indicating which Keylime components to build from the source directory; use \"v\" for the verifier, \"r\" for the registrar, \"t\" for the tenant, \"a\" for the agent, or combine these characters to build multiple components (default: \"vrt\")."
   echo "-t <tag>        : a tag to apply to the built images (defaults to the current timestamp)"
   echo "-p <registry>   : the Docker registry to push the images to"
+  echo "-w              : write variable files to working directory to make image tags available to Packer (ignored unless -p is used)"
   echo "-h              : display help text"
   echo ""
   echo "Examples:"
@@ -34,8 +35,9 @@ comp_str="vrt"
 branch="master"
 src_dir="./keylime"
 tag=$(date +%s)
+write_vars=false
 
-while getopts r:b:d:c:t:p:h opt; do
+while getopts r:b:d:c:t:p:wh opt; do
   case "$opt" in
     r) repo="${OPTARG}" ;;
     b) branch="${OPTARG}" ;;
@@ -43,6 +45,7 @@ while getopts r:b:d:c:t:p:h opt; do
     c) comp_str="${OPTARG}" ;;
     t) tag="${OPTARG}" ;;
     p) registry="${OPTARG}" ;;
+    w) write_vars=true ;;
     h) help
        exit 0 ;;
     *) # illegal option: getopts will output an error
@@ -107,7 +110,7 @@ if [[ "$comp_str" =~ [vrt]{1,} ]]; then
 
   # Generate Dockerfiles from .in template files
   echo "🡆 Generating Dockerfiles from template files..."
-  ./generate-files.sh "$branch"
+  ./generate-files.sh "$tag"
 
   echo "🡆 Extending Dockerfiles to modify the default Keylime network config..."
 
@@ -125,6 +128,17 @@ if [[ "$comp_str" =~ [vrt]{1,} ]]; then
   echo "" >> base/Dockerfile
   echo "RUN sed -i \"s/^verifier_ip = 127.0.0.1$/verifier_ip = keylime_verifier/\" /etc/keylime/tenant.conf && \\" >> base/Dockerfile
   echo "    sed -i \"s/^registrar_ip = 127.0.0.1$/registrar_ip = keylime_registrar/\" /etc/keylime/tenant.conf" >> base/Dockerfile
+
+  # Add instructions to base Dockerfile to set appropriate permissions for data directory
+  echo "" >> base/Dockerfile
+  echo "RUN useradd keylime && usermod -a -G tss keylime && \\" >> base/Dockerfile
+  echo "    timeout --preserve-status 30s keylime_verifier && \\" >> base/Dockerfile # run keylime_verifier to create cv_ca directory containing certs
+  echo "    chown -R keylime:tss /var/lib/keylime/"  >> base/Dockerfile # change ownership of keylime directory and children including cv_ca directory
+
+  # Add instructions to base Dockerfile to expose data and config directories as volumes
+  echo "" >> base/Dockerfile
+  echo "VOLUME /etc/keylime" >> base/Dockerfile
+  echo "VOLUME /var/lib/keylime" >> base/Dockerfile
 
   # Change back to previous working directory
   cd "$owd" || exit
@@ -157,16 +171,20 @@ if [ -n "$registry" ]; then
     docker tag "$image_name" "$registry_image_path"
     docker push "$registry_image_path" || { echo "Authentication failed! Your GCP session may have expired (run \`gcloud auth login\` to fix) or Docker may not be configured to use gcloud as an authentication provider (try \`gcloud auth configure-docker\`)." >&2; exit; }
   done
+
+  # If option is turned on, output variable files to provide Packer with the identifying tag applied to the images
+  if [ "$write_vars" = true ]; then
+
+    if [[ "$comp_str" =~ [vrt]{1,} ]]; then
+      echo "vrt_tag = \"$tag\"" > variables-vrt.auto.pkrvars.hcl
+      echo "Writen tag name ($tag) to variables-vrt.auto.pkrvars.hcl."
+    fi
+
+    if [[ "$comp_str" =~ a ]]; then
+      echo "a_tag = \"$tag\"" > variables-a.auto.pkrvars.hcl
+      echo "Writen tag name ($tag) to variables-a.auto.pkrvars.hcl."
+    fi
+  fi
 else
   echo "🡆 No container registry has been provided, so skipping push to registry."
-fi
-
-# Output variable files to provide Packer with the identifying tag applied to the images:
-
-if [[ "$comp_str" =~ [vrt]{1,} ]]; then
-  echo "vrt_tag = \"$tag\"" > variables-vrt.auto.pkrvars.hcl
-fi
-
-if [[ "$comp_str" =~ a ]]; then
-  echo "a_tag = \"$tag\"" > variables-a.auto.pkrvars.hcl
 fi
