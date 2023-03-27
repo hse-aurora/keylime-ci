@@ -9,12 +9,12 @@ packer {
 
 variable "vrt_tag" {
   type    = string
-  default = "master"
+  default = "latest"
 }
 
 variable "a_tag" {
   type    = string
-  default = "master"
+  default = "latest"
 }
 
 variable "oimgid" {
@@ -54,12 +54,10 @@ build {
       // Create custom network bridge to allow containers to communicate with one another by name instead of IP address
       "sudo docker network create keylime-net",
       // Create containers from the images with the appropriate mappings to allow sharing of data between containers
-      "sudo docker run -itd -v kl-data-vol:/var/lib/keylime -v kl-config-vol:/etc/keylime --net keylime-net -p 8880:8880 -p 8881:8881 --restart unless-stopped --name keylime_verifier gcr.io/project-keylime/keylime_verifier:${var.branch}",
-      "sudo docker run -itd -v kl-data-vol:/var/lib/keylime -v kl-config-vol:/etc/keylime --net keylime-net -p 8890:8890 -p 8891:8891 --restart unless-stopped --name keylime_registrar gcr.io/project-keylime/keylime_registrar:${var.branch}",
-      "sudo docker run -itd -v kl-data-vol:/var/lib/keylime -v kl-config-vol:/etc/keylime --net keylime-net --entrypoint /bin/bash --name keylime_tenant gcr.io/project-keylime/keylime_tenant:${var.branch}",
-      // The Dockerfile provided for the agent does not currently work as is
-      // "sudo docker run -itd -v kl-data-vol:/var/lib/keylime -v kl-config-vol:/etc/keylime --restart unless-stopped --name keylime_agent gcr.io/project-keylime/keylime_agent:${var.branch}"
-      // TODO: Create new Dockerfile for agent
+      "sudo docker run -itd -v kl-data-vol:/var/lib/keylime -v kl-vrt-config-vol:/etc/keylime --net keylime-net -p 8880:8880 -p 8881:8881 --restart unless-stopped --name keylime_verifier gcr.io/project-keylime/keylime_verifier:${var.vrt_tag}",
+      "sudo docker run -itd -v kl-data-vol:/var/lib/keylime -v kl-vrt-config-vol:/etc/keylime --net keylime-net -p 8890:8890 -p 8891:8891 --restart unless-stopped --name keylime_registrar gcr.io/project-keylime/keylime_registrar:${var.vrt_tag}",
+      "sudo docker run -itd -v kl-data-vol:/var/lib/keylime -v kl-vrt-config-vol:/etc/keylime --net keylime-net --restart unless-stopped --entrypoint /bin/bash --name keylime_tenant gcr.io/project-keylime/keylime_tenant:${var.vrt_tag}",
+      "sudo docker run -itd -v kl-data-vol:/var/lib/keylime -v kl-a-config-vol:/etc/keylime --net keylime-net -p 9002:9002 --restart unless-stopped --tmpfs /var/lib/keylime/secure:size=1024k,mode=0700 --device /dev/tpm0:/dev/tpm0 --device /dev/tpmrm0:/dev/tpmrm0 --name keylime_agent gcr.io/project-keylime/keylime_agent:${var.a_tag}"
     ]
   }
 }
