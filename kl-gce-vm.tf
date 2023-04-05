@@ -18,6 +18,8 @@ variable "image_name" {
 
 variable "ssh_public_key" {
   type = string
+  nullable = true
+  default = null
 }
 
 variable "ovmid" {
@@ -28,10 +30,16 @@ variable "ovmid" {
 
 resource "time_static" "activation_date" {}
 
-provider "google" {
+locals {
   project = "project-keylime"
-  region  = "europe-west2"
-  zone    = "europe-west2-c"
+  region = "europe-west2"
+  zone = "europe-west2-c"
+}
+
+provider "google" {
+  project = local.project
+  region  = local.region
+  zone    = local.zone
 }
 
 resource "google_compute_instance" "vm_instance" {
@@ -41,12 +49,12 @@ resource "google_compute_instance" "vm_instance" {
   allow_stopping_for_update = true
 
   metadata = {
-    ssh-keys = "kluser:${file(var.ssh_public_key)}"
+    ssh-keys = var.ssh_public_key != null ? "kluser:${file(var.ssh_public_key)}" : ""
   }
 
   boot_disk {
     initialize_params {
-      image = "project-keylime/${var.image_name}"
+      image = "${local.project}/${var.image_name}"
     }
   }
 
@@ -66,4 +74,8 @@ output "vm_name" {
 
 output "ephemeral_vm_ip" {
   value = google_compute_instance.vm_instance.network_interface[0].access_config[0].nat_ip
+}
+
+output "gcloud_ssh_cmd" {
+  value = "gcloud compute ssh --zone ${local.zone} ${google_compute_instance.vm_instance.name} --project ${local.project}"
 }

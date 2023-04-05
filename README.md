@@ -108,10 +108,10 @@ To provision a new deployment of Keylime in GCP:
 
     ```shell
     terraform workspace new <workspace_name>
-    terraform apply -var ssh_public_key=<pub_key_path> -var image_name="packer-keylime-$GCP_ID" -var ovmid="$GCP_ID"
+    terraform apply -var image_name="packer-keylime-$GCP_ID" -var ovmid="$GCP_ID"
     ```
 
-    where `<workspace_name>` is a name of your choice, only visible to you, to represent the environment you are deploying (e.g., "development" or "staging") and `<pub_key_path>` is the path to your SSH public key (usually beginning with `~/.ssh`).
+    where `<workspace_name>` is a name of your choice, only visible to you, to represent the environment you are deploying (e.g., "development" or "staging").
 
 ### Result
 
@@ -133,13 +133,11 @@ If you have performed the above steps in order, you will now see the following r
 
   - A VM instance called `terraform-keylime-<GCP_ID>` which will be assigned the IP address output by Terraform in step 7. Note that this IP is dynamic so it will change upon VM reboot.
 
-You can access the VM with SSH:
+You can access the VM by copying the `gcloud_ssh_cmd` value output by Terraform in step 7 and pasting it in your terminal:
 
 ```shell
-ssh kluser@<ip>
+gcloud compute ssh --zone europe-west2-c terraform-keylime-<GCP_ID> --project project-keylime
 ```
-
-where `<ip>` is the IP address of the VM.
 
 Now if you run `docker ps` in the remote shell, you will see running containers for each Keylime component (named `keylime_verifier`, `keylime_registrar`, `keylime_tenant` and `keylime_agent`). Keylime data and configuration files are stored in Docker volumes named `kl-data-vol` and `kl-config-vol` respectively. You can use `docker volume inspect <vol_name>` to find the mount point of these volumes.
 
@@ -227,10 +225,12 @@ You can list your available workspaces with the `terraform workspace list` comma
 Now, you can use this command to create a new VM:
 
 ```shell
-terraform apply -var ssh_public_key=<pub_key_path> -var image_name=<img_name> -ovmid=<id>
+terraform apply -var image_name=<img_name> -ovmid=<id>
 ```
 
-where `<pub_key_path>` is the path to your SSH public key file (e.g., `~/.ssh/id_ed25519.pub`) and `<img_name>` is the name of the image from which to instantiate the VM (starting with `packer-keylime-...`).
+where `<img_name>` is the name of the image from which to instantiate the VM (starting with `packer-keylime-...`).
+
+If you wish to specify a public key to add to the VM for SSH access, you can set the `ssh_public_key` input variable to the path where your SSH public key file (e.g., `~/.ssh/id_ed25519.pub`) is located. Otherwise, Terraform will output a gcloud command you can use to connect to the VM over SSH instead.
 
 The new VM will have the name of `terraform-keylime-<id>`. If you don't provide an output VM ID by setting the `ovmid` variable, the current timestamp will be used.
 
