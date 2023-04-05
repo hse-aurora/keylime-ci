@@ -152,11 +152,11 @@ for part in "${comp_arr[@]}"; do
   echo "Building $image_name..."
 
   if [[ "$comp_str" =~ [vrt]{1,} ]]; then
-    docker build -t "$image_name" -f "$src_dir/docker/release/$part/Dockerfile" "$src_dir"
+    DOCKER_BUILDKIT=1 docker build -t "$image_name" -f "$src_dir/docker/release/$part/Dockerfile" "$src_dir"
   fi
 
   if [[ "$comp_str" =~ a ]]; then
-    docker build -t "$image_name" -f "docker/agent.Dockerfile" "$src_dir"
+    DOCKER_BUILDKIT=1 docker build -t "$image_name" -f "docker/agent.Dockerfile" "$src_dir"
   fi
 done
 
