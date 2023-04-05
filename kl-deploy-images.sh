@@ -169,7 +169,7 @@ if [ -n "$registry" ]; then
 
     echo "Pushing $image_name to $registry_image_path..."
     docker tag "$image_name" "$registry_image_path"
-    docker push "$registry_image_path" || { echo "Authentication failed! Your GCP session may have expired (run \`gcloud auth login\` to fix) or Docker may not be configured to use gcloud as an authentication provider (try \`gcloud auth configure-docker\`)." >&2; exit; }
+    docker push "$registry_image_path" || { echo "\`docker push\` command failed! This may be an authentication issue: your GCP session may have expired (run \`gcloud auth login\` to fix) or Docker may not be configured to use gcloud as an authentication provider (try \`gcloud auth configure-docker\`)." >&2; exit 1; }
   done
 
   # If option is turned on, output variable files to provide Packer with the identifying tag applied to the images
