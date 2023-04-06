@@ -1,0 +1,57 @@
+name: GCP Resource Cleanup
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  cleanup-job:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - id: auth
+        name: 'Authenticate to Google Cloud'
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: 'projects/1009956179353/locations/global/workloadIdentityPools/keylime-github-actions/providers/github'
+          service_account: 'keylime-ci@project-keylime.iam.gserviceaccount.com'
+
+      - name: 'Set up Cloud SDK'
+        uses: google-github-actions/setup-gcloud@v1
+
+      - id: clear-old-docker-images
+        name: 'Clean up old Docker images'
+        run: |-
+          for part in base registrar verifier tenant agent; do
+            gcloud container images list-tags "gcr.io/project-keylime/keylime_$part" --filter="timestamp.datetime < -P2D" --format="[no-heading](digest, tags)" | while read -r digest tags; do
+              if [[ $tags ]]; then
+                echo "Image for keylime_$part with digest $digest (tagged $tags) is older than 48 hours, deleting..."
+              else
+                echo "Image for keylime_$part with digest $digest (no tags) is older than 48 hours, deleting..."
+              fi
+              gcloud container images delete "gcr.io/project-keylime/keylime_$part@sha256:$digest" --force-delete-tags --quiet
+            done
+          done
+
+      - id: clear-old-packer-images
+        name: 'Clean up old Packer-generated VM images'
+        run: |-
+          gcloud compute images list --filter="name : packer-keylime-* AND creationTimestamp < -P2D" | while read -r name project rest; do
+            if [[ "$project" = "project-keylime" ]]; then
+              echo "Image $name is older than 48 hours, deleting..."
+              gcloud compute images delete "$name" --quiet
+            fi
+          done
+
+      - id: shutdown-vms
+        name: 'Shutdown any running compute instances'
+        run: |-
+          gcloud compute instances list --filter="name : terraform-keylime-* AND status = running" --format="[no-heading](name, zone)" | while read -r name zone; do
+            echo "Compute instance $name is running, stopping..."
+            gcloud compute instances stop "$name" --zone="$zone" --quiet
+          done

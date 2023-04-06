@@ -1,0 +1,135 @@
+name: GCP Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      vrt_repo:
+        description: 'Repo for Python Keylime verifier, registrar and tenant'
+        default: hse-aurora/keylime-oss
+        required: true
+        type: string
+      vrt_ref:
+        description: 'Branch/tag/SHA for Python Keylime verifier, registrar and tenant'
+        default: master
+        required: true
+        type: string
+      a_repo:
+        description: 'Repo for Rust Keylime agent'
+        default: keylime/rust-keylime
+        required: true
+        type: string
+      a_ref:
+        description: 'Branch/tag/SHA for Rust Keylime agent'
+        default: master
+        required: true
+        type: string
+      gcp_id:
+        description: 'GCP ID (e.g., "dev-<your_name>-0")'
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      vrt_repo:
+        required: true
+        type: string
+      vrt_ref:
+        required: true
+        type: string
+      a_repo:
+        required: true
+        type: string
+      a_ref:
+        required: true
+        type: string
+      gcp_id:
+        required: true
+        type: string
+    secrets:
+      SSH_KEYLIME_CI_DEPLOY_KEY:
+        required: true
+
+jobs:
+  deploy-job:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - id: auth
+        name: 'Authenticate to Google Cloud'
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: 'projects/1009956179353/locations/global/workloadIdentityPools/keylime-github-actions/providers/github'
+          service_account: 'keylime-ci@project-keylime.iam.gserviceaccount.com'
+          token_format: 'access_token'
+
+      - name: 'Make GCP access token available to Docker'
+        uses: 'docker/login-action@v2'
+        with:
+          registry: 'gcr.io'
+          username: 'oauth2accesstoken'
+          password: '${{ steps.auth.outputs.access_token }}'
+
+      - name: 'Set up GCP Cloud SDK (gcloud)'
+        uses: google-github-actions/setup-gcloud@v1
+      
+      - name: 'Set up Packer'
+        uses: hashicorp/setup-packer@main
+        with:
+          version: '1.8.6'
+
+      - name: 'Set up Terraform'
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: '1.4.4'
+
+      - name: 'Checkout repo for Python Keylime verifier, registrar and tenant'
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ inputs.vrt_repo }}
+          ref: ${{ inputs.vrt_ref }}
+          path: keylime
+
+      - name: 'Checkout repo for Rust Keylime agent'
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ inputs.a_repo }}
+          ref: ${{ inputs.a_ref }}
+          path: rust-keylime
+
+      - name: 'Checkout CI tools from hse-aurora/keylime-ci'
+        uses: actions/checkout@v3
+        with:
+          ssh-key: ${{ secrets.SSH_KEYLIME_CI_DEPLOY_KEY }}
+          repository: hse-aurora/keylime-ci
+          path: keylime-ci
+
+      - name: 'Build Docker images for verifier, registrar and tenant and push to GCR'
+        run: |-
+          cd keylime-ci
+          chmod 755 ./kl-deploy-images.sh
+          ./kl-deploy-images.sh -d ../keylime -c vrt -t ${{ inputs.gcp_id }} -p gcr.io/project-keylime -w
+
+      - name: 'Build Docker image for agent and push to GCR'
+        run: |-
+          cd keylime-ci
+          chmod 755 ./kl-deploy-images.sh
+          ./kl-deploy-images.sh -d ../rust-keylime -c a -t ${{ inputs.gcp_id }} -p gcr.io/project-keylime -w
+      
+      - name: 'Initialise Packer and Terraform environment and fetch required plugins'
+        run: |-
+          cd keylime-ci
+          packer init .
+          terraform init
+
+      - name: 'Use Packer to build a VM image in GCP with containers for the Keylime verifier, registrar, tenant and agent'
+        run: |-
+          cd keylime-ci
+          packer build -var oimgid="${{ inputs.gcp_id }}" -force .
+      
+      - name: 'Use Terraform to instantiate a VM in GCP from the Packer image'
+        run: |-
+          cd keylime-ci
+          terraform apply -var image_name="packer-keylime-${{ inputs.gcp_id }}" -var ovmid="${{ inputs.gcp_id }}" -auto-approve
