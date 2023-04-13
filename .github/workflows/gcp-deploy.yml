@@ -132,4 +132,4 @@ jobs:
       - name: 'Use Terraform to instantiate a VM in GCP from the Packer image'
         run: |-
           cd keylime-ci
-          terraform apply -var image_name="packer-keylime-${{ inputs.gcp_id }}" -var ovmid="${{ inputs.gcp_id }}" -auto-approve
+          terraform apply -var image_name="packer-keylime-${{ inputs.gcp_id }}" -var ovmid="${{ inputs.gcp_id }}" -auto-approve -replace=google_compute_instance.vm_instance
