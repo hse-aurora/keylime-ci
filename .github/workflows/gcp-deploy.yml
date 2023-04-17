@@ -27,6 +27,10 @@ on:
         description: 'GCP ID (e.g., "dev-<your_name>-0")'
         required: true
         type: string
+      overwrite_vm:
+        description: 'Delete any existing VM with the same ID'
+        required: false
+        type: boolean
   workflow_call:
     inputs:
       vrt_repo:
@@ -44,6 +48,9 @@ on:
       gcp_id:
         required: true
         type: string
+      overwrite_vm:
+        required: false
+        type: boolean
     secrets:
       SSH_KEYLIME_CI_DEPLOY_KEY:
         required: true
@@ -128,6 +135,11 @@ jobs:
         run: |-
           cd keylime-ci
           packer build -var oimgid="${{ inputs.gcp_id }}" -force .
+
+      - name: 'Delete GCP VM if it already exists'
+        if: ${{ inputs.overwrite_vm == true }}
+        run: |-
+          gcloud compute instances delete "terraform-keylime-${{ inputs.gcp_id }}" --zone="europe-west2-c" --quiet || true
       
       - name: 'Use Terraform to instantiate a VM in GCP from the Packer image'
         run: |-
