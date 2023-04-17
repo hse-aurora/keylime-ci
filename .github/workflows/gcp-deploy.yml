@@ -86,6 +86,8 @@ jobs:
         uses: hashicorp/setup-packer@main
         with:
           version: '1.8.6'
+        env:
+          PACKER_GITHUB_API_TOKEN: ${{ github.token }}
 
       - name: 'Set up Terraform'
         uses: hashicorp/setup-terraform@v2
