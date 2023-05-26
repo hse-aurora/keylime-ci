@@ -94,68 +94,15 @@ else
   echo "🡆 No repo has been provided, so skipping clone and using the contents of $src_dir."
 fi
 
-# TODO: Modify Keylime's templated Dockerfiles to use Chainguard images.
-# Note from Dat:
-###
-# if you want to change the base image of the containers
-# try using sed to replace the Docker.in files
-# example: sed -i "s/fedora:37/rockylinux:9/g" keylime/docker/release/base/Dockerfile.in
-###
-
-# Perform actions on Keylime's templated Dockerfiles if verifier, registrar or tenant images are being built...
-if [[ "$comp_str" =~ [vrt]{1,} ]]; then
-  # Change to directory containing templates but remember current working directory
-  owd=$(pwd)
-  cd "$src_dir/docker/release" || exit
-
-  # Generate Dockerfiles from .in template files
-  echo "🡆 Generating Dockerfiles from template files..."
-  ./generate-files.sh "$tag"
-
-  echo "🡆 Extending Dockerfiles to modify the default Keylime network config..."
-
-  # Add instructions to base Dockerfile to modify verifier.conf with the correct network settings
-  echo "" >> base/Dockerfile
-  echo "RUN sed -i \"s/^ip = 127.0.0.1$/ip = 0.0.0.0/\" /etc/keylime/verifier.conf && \\" >> base/Dockerfile
-  echo "    sed -i \"s/^registrar_ip = 127.0.0.1$/registrar_ip = keylime_registrar/\" /etc/keylime/verifier.conf && \\" >> base/Dockerfile
-  echo "    sed -i \"s/^registrar_port = 8881$/registrar_port = 8891/\" /etc/keylime/verifier.conf" >> base/Dockerfile
-
-  # Add instructions to base Dockerfile to modify registrar.conf with the correct network settings
-  echo "" >> base/Dockerfile
-  echo "RUN sed -i \"s/^ip = 127.0.0.1$/ip = 0.0.0.0/\" /etc/keylime/registrar.conf" >> base/Dockerfile
-
-  # Add instructions to base Dockerfile to modify tenant.conf with the correct network settings
-  echo "" >> base/Dockerfile
-  echo "RUN sed -i \"s/^verifier_ip = 127.0.0.1$/verifier_ip = keylime_verifier/\" /etc/keylime/tenant.conf && \\" >> base/Dockerfile
-  echo "    sed -i \"s/^registrar_ip = 127.0.0.1$/registrar_ip = keylime_registrar/\" /etc/keylime/tenant.conf" >> base/Dockerfile
-
-  # Add instructions to base Dockerfile to set appropriate permissions for data directory
-  echo "" >> base/Dockerfile
-  echo "RUN useradd keylime && usermod -a -G tss keylime && \\" >> base/Dockerfile
-  echo "    timeout --preserve-status 30s keylime_verifier && \\" >> base/Dockerfile # run keylime_verifier to create cv_ca directory containing certs
-  echo "    chown -R keylime:tss /var/lib/keylime/"  >> base/Dockerfile # change ownership of keylime directory and children including cv_ca directory
-
-  # Add instructions to base Dockerfile to expose data and config directories as volumes
-  echo "" >> base/Dockerfile
-  echo "VOLUME /etc/keylime" >> base/Dockerfile
-  echo "VOLUME /var/lib/keylime" >> base/Dockerfile
-
-  # Change back to previous working directory
-  cd "$owd" || exit
-fi
-
 # Build Docker images from Dockerfiles
 echo "🡆 Building Docker images from Dockerfiles..."
 for part in "${comp_arr[@]}"; do
   image_name="keylime_$part:$tag"
 
   echo "Building $image_name..."
-
-  if [[ "$part" == "base" || "$part" == "verifier" || "$part" == "registrar" || "$part" == "tenant" ]]; then
-    DOCKER_BUILDKIT=1 docker build -t "$image_name" -f "$src_dir/docker/release/$part/Dockerfile" "$src_dir"
-  elif [[ "$part" == "agent" ]]; then
-    DOCKER_BUILDKIT=1 docker build -t "$image_name" -f "docker/agent.Dockerfile" "$src_dir"
-  fi
+  
+  DOCKER_BUILDKIT=1 docker build -t "$image_name" -f "docker/$part.Dockerfile" --build-arg KL_VERSION="$tag" "$src_dir" \
+    || { echo "\`docker build\` command failed, exiting! See log output above." >&2; exit 1; }
 done
 
 # If a container registry has been provided, push Docker images to the registry
