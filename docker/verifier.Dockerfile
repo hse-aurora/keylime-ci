@@ -23,12 +23,6 @@ FROM keylime_base:${KL_VERSION} AS keylime_verifier
 LABEL version=${KL_VERSION}
 LABEL description="Keylime Verifier"
 
-# Modify default verifier configuration to accept outside connections and communicate
-# with the registrar using its Docker alias (requires a bridge network)
-RUN sed -i "s/^ip = 127.0.0.1$/ip = 0.0.0.0/" /etc/keylime/verifier.conf && \
-    sed -i "s/^registrar_ip = 127.0.0.1$/registrar_ip = keylime_registrar/" /etc/keylime/verifier.conf && \
-    sed -i "s/^registrar_port = 8881$/registrar_port = 8891/" /etc/keylime/verifier.conf
-
 EXPOSE 8880
 EXPOSE 8881
 

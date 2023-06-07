@@ -23,9 +23,6 @@ FROM keylime_base:${KL_VERSION} AS keylime_registrar
 LABEL version=${KL_VERSION}
 LABEL description="Keylime Registrar"
 
-# Modify default registrar configuration to accept outside connections
-RUN sed -i "s/^ip = 127.0.0.1$/ip = 0.0.0.0/" /etc/keylime/registrar.conf
-
 EXPOSE 8890
 EXPOSE 8891
 

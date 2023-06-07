@@ -47,6 +47,24 @@ RUN useradd keylime && \
     timeout --preserve-status 30s keylime_verifier && \
     chown -R keylime:tss /var/lib/keylime/
 
+# Making edits to the config files here allows containers for the verifier, registrar and tenant to share the same
+# config volume without one container's copy of the config files overriding the others...
+# See https://docs.docker.com/storage/volumes/#populate-a-volume-using-a-container where this behaviour is documented
+
+# Modify default verifier configuration to accept outside connections and communicate
+# with the registrar using its Docker alias (requires a bridge network)
+RUN sed -i "s/^ip = 127.0.0.1$/ip = 0.0.0.0/" /etc/keylime/verifier.conf && \
+    sed -i "s/^registrar_ip = 127.0.0.1$/registrar_ip = keylime_registrar/" /etc/keylime/verifier.conf && \
+    sed -i "s/^registrar_port = 8881$/registrar_port = 8891/" /etc/keylime/verifier.conf
+
+# Modify default registrar configuration to accept outside connections
+RUN sed -i "s/^ip = 127.0.0.1$/ip = 0.0.0.0/" /etc/keylime/registrar.conf
+
+# Modify default tenant configuration to communicate with the verifier and registrar
+# using their Docker aliases (requires a bridge network)
+RUN sed -i "s/^verifier_ip = 127.0.0.1$/verifier_ip = keylime_verifier/" /etc/keylime/tenant.conf && \
+    sed -i "s/^registrar_ip = 127.0.0.1$/registrar_ip = keylime_registrar/" /etc/keylime/tenant.conf
+
 # Expose configuration, data and source directories as volumes
 VOLUME /etc/keylime
 VOLUME /var/lib/keylime

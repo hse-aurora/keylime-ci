@@ -23,9 +23,4 @@ FROM keylime_base:${KL_VERSION} AS keylime_tenant
 LABEL version=${KL_VERSION}
 LABEL description="Keylime Tenant"
 
-# Modify default tenant configuration to communicate with the verifier and registrar
-# using their Docker aliases (requires a bridge network)
-RUN sed -i "s/^verifier_ip = 127.0.0.1$/verifier_ip = keylime_verifier/" /etc/keylime/tenant.conf && \
-    sed -i "s/^registrar_ip = 127.0.0.1$/registrar_ip = keylime_registrar/" /etc/keylime/tenant.conf
-
 ENTRYPOINT ["keylime_tenant"]
