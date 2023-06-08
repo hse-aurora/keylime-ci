@@ -37,7 +37,7 @@ sudo docker run -itd -v kl-data-vol:/var/lib/keylime -v kl-vrt-config-vol:/etc/k
 count=0
 while ! docker top "$verifier_id" &> /dev/null || ! docker top "$registrar_id" &> /dev/null; do
   sleep 1
-  let "count++"
+  let "++count"
 
   [[ $count -ge 30 ]] && break
 done
