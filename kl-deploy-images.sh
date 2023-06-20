@@ -13,7 +13,6 @@ help () {
   echo "-c <components> : a string indicating which Keylime components to build from the source directory; use \"v\" for the verifier, \"r\" for the registrar, \"t\" for the tenant, \"a\" for the agent, or combine these characters to build multiple components (default: \"vrt\")."
   echo "-t <tag>        : a tag to apply to the built images (defaults to the current timestamp)"
   echo "-p <registry>   : the Docker registry to push the images to"
-  echo "-w              : write variable files to working directory to make image tags available to Packer (ignored unless -p is used)"
   echo "-h              : display help text"
   echo ""
   echo "Examples:"
@@ -35,9 +34,8 @@ comp_str="vrt"
 branch="master"
 src_dir="./keylime"
 tag=$(date +%s)
-write_vars=false
 
-while getopts r:b:d:c:t:p:wh opt; do
+while getopts r:b:d:c:t:p:h opt; do
   case "$opt" in
     r) repo="${OPTARG}" ;;
     b) branch="${OPTARG}" ;;
@@ -45,7 +43,6 @@ while getopts r:b:d:c:t:p:wh opt; do
     c) comp_str="${OPTARG}" ;;
     t) tag="${OPTARG}" ;;
     p) registry="${OPTARG}" ;;
-    w) write_vars=true ;;
     h) help
        exit 0 ;;
     *) # illegal option: getopts will output an error
@@ -105,6 +102,16 @@ for part in "${comp_arr[@]}"; do
     || { echo "\`docker build\` command failed, exiting! See log output above." >&2; exit 1; }
 done
 
+if [[ "$comp_str" =~ a ]]; then
+  echo "Building SWTPM..."
+
+  DOCKER_BUILDKIT=1 docker build -t "swtpm:latest" -f "docker/swtpm.Dockerfile" "$src_dir" \
+    || { echo "\`docker build\` command failed, exiting! See log output above." >&2; exit 1; }
+fi
+
+# TODO:
+# - Set HTTP_PROXY vars if http_proxy is set
+
 # If a container registry has been provided, push Docker images to the registry
 if [ -n "$registry" ]; then
   echo "🡆 Uploading Docker images to the container registry at $registry..."
@@ -117,18 +124,11 @@ if [ -n "$registry" ]; then
     docker push "$registry_image_path" || { echo "\`docker push\` command failed! This may be an authentication issue: your GCP session may have expired (run \`gcloud auth login\` to fix) or Docker may not be configured to use gcloud as an authentication provider (try \`gcloud auth configure-docker\`)." >&2; exit 1; }
   done
 
-  # If option is turned on, output variable files to provide Packer with the identifying tag applied to the images
-  if [ "$write_vars" = true ]; then
+  if [[ "$comp_str" =~ a ]]; then
+    echo "Pushing swtpm:latest to $registry/swtpm:latest..."
 
-    if [[ "$comp_str" =~ [vrt]{1,} ]]; then
-      echo "vrt_tag = \"$tag\"" > variables-vrt.auto.pkrvars.hcl
-      echo "Writen tag name ($tag) to variables-vrt.auto.pkrvars.hcl."
-    fi
-
-    if [[ "$comp_str" =~ a ]]; then
-      echo "a_tag = \"$tag\"" > variables-a.auto.pkrvars.hcl
-      echo "Writen tag name ($tag) to variables-a.auto.pkrvars.hcl."
-    fi
+    docker tag "swtpm:latest" "$registry/swtpm:latest"
+    docker push "$registry/swtpm:latest" || { echo "\`docker push\` command failed! This may be an authentication issue: your GCP session may have expired (run \`gcloud auth login\` to fix) or Docker may not be configured to use gcloud as an authentication provider (try \`gcloud auth configure-docker\`)." >&2; exit 1; }
   fi
 else
   echo "🡆 No container registry has been provided, so skipping push to registry."

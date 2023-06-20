@@ -35,7 +35,7 @@ build {
   sources = ["sources.googlecompute.fedora"]
 
   provisioner "shell" {
-    scripts = ["./helpers/install-containers.sh"]
+    scripts = ["./helpers/create-containers.sh"]
     env = {
       "VRT_TAG" = "${var.vrt_tag}"
       "A_TAG" = "${var.a_tag}"

@@ -2,7 +2,7 @@
 
 # agent.Dockerfile
 #
-# Example usage:
+# Example usage (forward TPM on host):
 #   DOCKER_BUILDKIT=1 docker build -f "docker/agent.Dockerfile" -t "keylime_agent:$KL_AGENT_VERSION" \
 #                                  --build-arg KL_AGENT_VERSION "$KL_AGENT_SRC_DIR"
 #   docker network create keylime-net
@@ -12,6 +12,15 @@
 #                   --tmpfs /var/lib/keylime/secure:size=1024k,mode=0700 \
 #                   --device /dev/tpm0:/dev/tpm0 --device /dev/tpmrm0:/dev/tpmrm0 \
 #                   --restart unless-stopped \
+#                   "keylime_agent:$KL_AGENT_VERSION"
+#
+# Example usage (use software TPM emulator):
+#   (Build image and create network, same as above.)
+#   docker run -itd --name keylime_agent --net keylime-net -p 9002:9002 \
+#                   -v kl-data-vol:/var/lib/keylime -v kl-a-config-vol:/etc/keylime \
+#                   -v kl-a-src-vol:/usr/local/src/rust-keylime \
+#                   --tmpfs /var/lib/keylime/secure:size=1024k,mode=0700 \
+#                   --env TCTI="swtpm:host=swtpm,port=2321" --restart unless-stopped \
 #                   "keylime_agent:$KL_AGENT_VERSION"
 #
 #   Note: Set KL_AGENT_VERSION to the Rust agent version you are using and KL_AGENT_SRC_DIR to the path
