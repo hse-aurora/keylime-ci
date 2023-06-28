@@ -73,7 +73,18 @@ The instructions below assume you are in the keylime-ci directory.
 
 ## Building the Virtual Machine
 
-1. **Authenticate with Docker Hub**
+1. **Download the VMWare Template Image**
+
+    When Packer builds your VM in subsequent steps, it is given an existing VMX file to use as the base. You can download and extract a Fedora 37 image by running these commands from your Unix terminal:
+
+    ```
+    wget https://hpe-keylime-public.storage.googleapis.com/vm-templates/keylime-fedora-template.tar.gz
+    tar xzvf keylime-fedora-template.tar.gz
+    ```
+
+    This file may take a while to download, so you may wish to proceed with the next steps in the meantime.
+
+2. **Authenticate with Docker Hub**
 
     Docker Hub has somewhat aggressive IP address-based rate limiting for unauthenticated users. To sidestep this, it is suggested you create a free [Docker Hub](https://hub.docker.com/) account.
 
@@ -81,7 +92,7 @@ The instructions below assume you are in the keylime-ci directory.
 
     > **Note** (**WSL2 users**): If you have Docker Desktop for Windows installed and running, the `docker` CLI should automatically be available from your WSL2 shell. If not, open Docker Desktop and ensure to check **Use the WSL 2 based engine** in Settings > General and **Enable integration with my default WSL distro** in Settings > Resources > WSL Integration.
 
-2. **Allow Docker to Push to Your Container Registry**
+3. **Allow Docker to Push to Your Container Registry**
 
     This step will be dependent on which container registry you are using. If you are using Docker Hub, you can skip this step.
     
@@ -94,7 +105,7 @@ The instructions below assume you are in the keylime-ci directory.
 
     Accept the default config when prompted.
 
-3. **Build the Keylime Container Images And Push to Registry**
+4. **Build the Keylime Container Images And Push to Registry**
 
     Assuming you have a copy of the Keylime Python source at `~/code/keylime` and the Rust source at `~/code/rust-keylime`, run the following commands in your Unix terminal:
 
@@ -111,7 +122,7 @@ The instructions below assume you are in the keylime-ci directory.
 
     If you would like to build from a remote Git repo directly, use `-r` (to specify the URL) and `-b` (for the branch) instead of `-d` above. See [the reference docs](kl-deploy-images.sh.md) for the full list of options that the shell script supports.
 
-4. **Set Packer Input Variables**
+5. **Set Packer Input Variables**
 
     The Packer configuration file (`kl-vmware-image.pkr.hcl`) leaves a number of values to be defined by the user. Default values for these variables are given in `defaults/kl-vmware-image.pkrvars.hcl`. Make a copy of this file and then edit it's values as appropriate:
 
@@ -124,7 +135,7 @@ The instructions below assume you are in the keylime-ci directory.
 
     > **Note** (**HPE employees**): It is suggested that you set `use_zscaler` and `use_proxy` to true.
 
-5. **Build the VMWare Image**
+6. **Build the VMWare Image**
 
     > **Note** (**WSL2 users**): The VMWare plugin for Packer expects to be on the same system where VMWare Workstation is installed, so you should perform these steps from Powershell or the Command Prompt.
 
