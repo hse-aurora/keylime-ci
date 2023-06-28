@@ -130,13 +130,13 @@ jobs:
       - name: 'Initialise Packer and Terraform environment and fetch required plugins'
         run: |-
           cd keylime-ci
-          packer init .
+          packer init kl-gce-image.pkr.hcl
           terraform init
 
       - name: 'Use Packer to build a VM image in GCP with containers for the Keylime verifier, registrar, tenant and agent'
         run: |-
           cd keylime-ci
-          packer build -var vrt_tag="${{ inputs.gcp_id }}" -var a_tag="${{ inputs.gcp_id }}" -var oimgid="${{ inputs.gcp_id }}" -force .
+          packer build -var vrt_tag="${{ inputs.gcp_id }}" -var a_tag="${{ inputs.gcp_id }}" -var oimgid="${{ inputs.gcp_id }}" -force kl-gce-image.pkr.hcl
 
       - name: 'Delete GCP VM if it already exists'
         if: ${{ inputs.overwrite_vm == true }}
