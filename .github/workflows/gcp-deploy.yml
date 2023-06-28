@@ -119,13 +119,13 @@ jobs:
         run: |-
           cd keylime-ci
           chmod 755 ./kl-deploy-images.sh
-          ./kl-deploy-images.sh -d ../keylime -c vrt -t ${{ inputs.gcp_id }} -p gcr.io/project-keylime -w
+          ./kl-deploy-images.sh -d ../keylime -c vrt -t ${{ inputs.gcp_id }} -p gcr.io/project-keylime
 
       - name: 'Build Docker image for agent and push to GCR'
         run: |-
           cd keylime-ci
           chmod 755 ./kl-deploy-images.sh
-          ./kl-deploy-images.sh -d ../rust-keylime -c a -t ${{ inputs.gcp_id }} -p gcr.io/project-keylime -w
+          ./kl-deploy-images.sh -d ../rust-keylime -c a -t ${{ inputs.gcp_id }} -p gcr.io/project-keylime
       
       - name: 'Initialise Packer and Terraform environment and fetch required plugins'
         run: |-
@@ -136,7 +136,7 @@ jobs:
       - name: 'Use Packer to build a VM image in GCP with containers for the Keylime verifier, registrar, tenant and agent'
         run: |-
           cd keylime-ci
-          packer build -var oimgid="${{ inputs.gcp_id }}" -force .
+          packer build -var vrt_tag="${{ inputs.gcp_id }}" -var a_tag="${{ inputs.gcp_id }}" -var oimgid="${{ inputs.gcp_id }}" -force .
 
       - name: 'Delete GCP VM if it already exists'
         if: ${{ inputs.overwrite_vm == true }}
