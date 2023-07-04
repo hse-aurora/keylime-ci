@@ -1,6 +1,12 @@
 # Ignore directories containing Keylime source fetched from remote repo
 *keylime*/
 
+# Ignore temporary directory
+tmp/
+
+# Ignore VMX templates
+vm-templates/
+
 # Ignore Packer/Terraform variable files except those in the defaults directory
 *.pkrvars.hcl
 *.pkrvars.json
@@ -39,3 +45,15 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+#######################################################################
+# Ignored paths below from https://github.com/github/gitignore/blob/main/Packer.gitignore
+
+# Cache objects
+packer_cache/
+
+# Crash log
+crash.log
+
+# For built boxes
+*.box
