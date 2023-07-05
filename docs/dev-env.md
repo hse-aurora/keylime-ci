@@ -78,8 +78,9 @@ The instructions below assume you are in the keylime-ci directory.
     When Packer builds your VM in subsequent steps, it is given an existing VMX file to use as the base. You can download and extract a Fedora 37 image by running these commands from your Unix terminal:
 
     ```
-    wget https://hpe-keylime-public.storage.googleapis.com/vm-templates/keylime-fedora-template.tar.gz
-    tar xzvf keylime-fedora-template.tar.gz
+    wget https://hpe-keylime-public.storage.googleapis.com/vm-templates/keylime-fedora-template.tar.gz -O vm-templates/keylime-fedora-template.tar.gz
+    tar xzvf vm-templates/keylime-fedora-template.tar.gz
+    rm vm-templates/keylime-fedora-template.tar.gz
     ```
 
     This file may take a while to download, so you may wish to proceed with the next steps in the meantime.
@@ -99,11 +100,15 @@ The instructions below assume you are in the keylime-ci directory.
     To use GCP Container Registry, run these commands from your Unix terminal:
 
     ```
-    gcloud auth login
+    gcloud auth login --no-launch-browser
     gcloud auth configure-docker
     ```
 
     Accept the default config when prompted.
+
+    > **Note**: If your Docker installation runs as the root user on your system, you will need to run the above commands prefixed with `sudo` (they will still appear to complete successfully without `sudo` but will not modify the correct configuration). You can test whether or not this is the case by seeing if `docker run hello-world` completes successfully without `sudo`. If in doubt, simply run the `gcloud ...` commands twice, once with `sudo` and once without.
+
+    > **Note** (**WSL2 users**): You should not need `sudo` for the above commands.
 
 4. **Build the Keylime Container Images And Push to Registry**
 
@@ -131,17 +136,24 @@ The instructions below assume you are in the keylime-ci directory.
     nano kl-vmware-image.pkrvars.hcl # Or editor of your choice
     ```
 
-    > **Note**: At minimum, you will likely wish to set `vrt_tag`, `a_tag`, and `oimg_label` to match `<res-label>` chosen in the previous step.
+    At minimum, you will likely wish to set `vrt_tag`, `a_tag`, and `oimg_label` to match `<res-label>` chosen in the previous step.
 
     > **Note** (**HPE employees**): It is suggested that you set `use_zscaler` and `use_proxy` to true.
 
 6. **Build the VMWare Image**
 
-    > **Note** (**WSL2 users**): The VMWare plugin for Packer expects to be on the same system where VMWare Workstation is installed, so you should perform these steps from Powershell or the Command Prompt.
+    > **Note** (**WSL2 users**): The VMWare plugin for Packer expects to be on the same system where VMWare Workstation is installed, so you should perform this step from Powershell or the Command Prompt.
 
-    First, obtain the necessary Packer plugins by running `packer init kl-vmware-image.pkr.hcl`. Then, run the following command to build your VM image:
+    First, if you are using GCP Container Registry, you will need to authenticate with GCP again, this time saving your session to be used as the [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials). You can do this by running:
+    
+    ```
+    gcloud auth application-default login --no-launch-browser
+    ```
+
+    Then, obtain the necessary Packer plugins and build your VM image by running:
 
     ```
+    packer init kl-vmware-image.pkr.hcl
     packer build -var-file="kl-vmware-image.pkrvars.hcl" kl-vmware-image.pkr.hcl
     ```
 
