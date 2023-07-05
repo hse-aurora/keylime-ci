@@ -7,6 +7,12 @@ packer {
   }
 }
 
+variable "base_vmx" {
+  type        = string
+  default     = "./vm-templates/keylime-fedora-template/keylime-fedora-template.vmx"
+  description = "The path to the VMX image to use as the base image when building the VM"
+}
+
 variable "use_zscaler" {
   type        = bool
   default     = false
@@ -45,7 +51,7 @@ variable "username" {
 
 variable "ssh_pub" {
   type        = string
-  default     = "${env("HOME")}/.ssh/id_ed25519.pub"
+  default     = "~/.ssh/id_ed25519.pub"
   description = "The path to the public key to upload to the VM and used to authenticate when connecting over SSH in the future"
 }
 
@@ -66,9 +72,9 @@ locals {
 }
 
 // VMWare VMX base image:
-// Contains a new Fedora 37 install with "packer" user preconfigured to perform passwordless sudo
+// Assumes a Fedora install with "packer" user preconfigured to perform passwordless sudo
 source "vmware-vmx" "keylime-fedora" {
-  source_path = "./vm-templates/keylime-fedora-template/keylime-fedora-template.vmx"
+  source_path = "${pathexpand(var.base_vmx)}"
   ssh_username = "packer"
   ssh_password = "packer"
   shutdown_command = "sudo shutdown -P now"
@@ -85,14 +91,14 @@ build {
 
   // Create empty temporary directory within project directory (CMD.exe)
   provisioner "shell-local" {
-    inline = ["rmdir /S /Q \"${path.root}\\tmp\" 2>null & mkdir \"${path.root}\\tmp\""]
+    inline = ["rmdir /S /Q \"${path.root}\\tmp\" 2>nul", "mkdir \"${path.root}\\tmp\""]
     only_on = ["windows"]
   }
 
   // Create empty temporary directory within project directory (Bash)
   provisioner "shell-local" {
     inline_shebang = "/usr/bin/env bash"
-    inline = ["rm -rf \"${path.root}/tmp\"; mkdir \"${path.root}/tmp\""]
+    inline = ["rm -rf \"${path.root}/tmp\"", "mkdir \"${path.root}/tmp\""]
     only_on = ["linux"]
   }
 
@@ -100,11 +106,10 @@ build {
   provisioner "shell" {
     inline = [
       "if [[ \"$USE_ZSCALER\" == \"false\" ]]; then exit 0; fi",
-      "wget http://vfrepo.br.rdlabs.hpecorp.net/zscaler-certs/zscaler.zip -O /tmp/zscaler.zip",
-      "unzip /tmp/zscaler.zip -d /tmp",
-      "sudo cp /tmp/zscaler/ZscalerRootCertificate-2048-SHA256.crt /etc/pki/ca-trust/source/anchors/",
+      "wget https://pages.github.hpe.com/jean-snyman/zscaler/zscaler.crt -O /tmp/zscaler.crt",
+      "sudo cp /tmp/zscaler.crt /etc/pki/ca-trust/source/anchors/",
       "sudo update-ca-trust",
-      "rm /tmp/zscaler.zip; rm -r /tmp/zscaler"
+      "rm /tmp/zscaler.crt"
     ]
     env = {
       "USE_ZSCALER" = "${var.use_zscaler}"
@@ -165,11 +170,11 @@ build {
   provisioner "shell-local" {
     inline = [
       "cd \"${path.root}\\tmp\"",
-      "if defined GCLOUD_CREDS copy \"%GCLOUD_CREDS%\" gcloud_application_default_credentials.json",
-      "type nul > gcloud_application_default_credentials.json"
+      "type nul > gcloud_application_default_credentials.json",
+      "if defined GCLOUD_CREDS copy /y \"%GCLOUD_CREDS%\" gcloud_application_default_credentials.json"
     ]
     env = {
-      "GCLOUD_CREDS" = "${var.gcloud_creds}"
+      "GCLOUD_CREDS" = "${pathexpand(var.gcloud_creds)}"
     }
     only_on = ["windows"]
   }
@@ -179,21 +184,21 @@ build {
     inline_shebang = "/usr/bin/env bash"
     inline = [
       "cd \"${path.root}/tmp\"",
+      "touch gcloud_application_default_credentials.json",
       "if [[ \"$GCLOUD_CREDS\" != \"\" ]]; then",
-      "  cp \"$GCLOUD_CREDS\" gcloud_application_default_credentials.json",
-      "fi",
-      "touch gcloud_application_default_credentials.json"
+      "  cp -f \"$GCLOUD_CREDS\" gcloud_application_default_credentials.json",
+      "fi"
     ]
     env = {
-      "GCLOUD_CREDS" = "${var.gcloud_creds}"
+      "GCLOUD_CREDS" = "${pathexpand(var.gcloud_creds)}"
     }
     only_on = ["linux"]
   }
 
   // Copy gcloud session from temporary location to VM
   provisioner "file" {
-    source = "${path.root}/tmp/application_default_credentials.json"
-    destination = "/tmp/application_default_credentials.json"
+    source = "${path.root}/tmp/gcloud_application_default_credentials.json"
+    destination = "/tmp/gcloud_application_default_credentials.json"
     generated = true
   }
 
@@ -201,8 +206,8 @@ build {
   provisioner "shell" {
     inline = [
       "sudo mkdir -p /root/.config/gcloud",
-      "sudo cp /tmp/application_default_credentials.json /root/.config/gcloud/application_default_credentials.json",
-      "rm /tmp/application_default_credentials.json"
+      "sudo cp /tmp/gcloud_application_default_credentials.json /root/.config/gcloud/application_default_credentials.json",
+      "rm /tmp/gcloud_application_default_credentials.json"
     ]
   }
 
@@ -222,11 +227,6 @@ build {
     }
   }
 
-  // TODO:
-  // - RECOMPILE RUST AGENT
-  // - Keylime helper scripts
-  // - Man page
-
   // Install useful tools
   provisioner "shell" {
     inline = ["sudo dnf -y install git nano"]
@@ -241,7 +241,7 @@ build {
 
   // Upload SSH public key
   provisioner "file" {
-    source = "${var.ssh_pub}"
+    source = "${pathexpand(var.ssh_pub)}"
     destination = "/tmp/ssh_key.pub"
   }
 
@@ -274,7 +274,7 @@ build {
 
   // Delete temporary directory (CMD.exe)
   provisioner "shell-local" {
-    inline = ["rmdir /S /Q \"${path.root}\\tmp\" 2>null"]
+    inline = ["rmdir /S /Q \"${path.root}\\tmp\" 2>nul"]
     only_on = ["windows"]
   }
 
