@@ -49,14 +49,10 @@ If you are instead using a Windows machine, then you will need to install:
 
 Additionally, you will need the following installed in the WSL2 environment:
 
-- [The gcloud CLI](https://cloud.google.com/sdk/docs/install) for your WSL2 Linux distro (if you are using GCR)
+- [The gcloud CLI](https://cloud.google.com/sdk/docs/install) for your WSL2 Linux distro (if you are using GCR) ***
 - Git
 
 Optionally, you may want to install [Windows Terminal](https://learn.microsoft.com/en-us/windows/terminal/install).
-
-### Connectivity (HPE only)
-
-If you are an HPE employee, it is suggested that you perform these steps from the office or otherwise ensure you are connected to the corporate VPN. And ensure your Linux/WSL2 environment has the appropriate proxy settings configured.
 
 ## Downloading the Automation Tools
 
