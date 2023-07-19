@@ -22,8 +22,8 @@ username = "kluser"
 ssh_pub = "~/.ssh/id_ed25519.pub"
 
 # gcloud_creds: The path to your gcloud application default credentials JSON file (usually lives in ~/.config/gcloud/
-#   application_default_credentials.json). If set, your gcloud session will be copied to the VM. If empty, the session
-#   will not be copied.
+#   application_default_credentials.json or %APPDATA%\gcloud\application_default_credentials.json). If set, your gcloud
+#   session will be copied to the VM. If empty, the session will not be copied.
 gcloud_creds = ""
 
 # use_swtpm: If true, a container will be installed in the VM with a software TPM emulator. If you turn this off,

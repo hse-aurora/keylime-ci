@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-set -e
-
 # This script queries the GitHub API which returns JSON, so install jq for JSON parsing
 sudo dnf -y install jq
 

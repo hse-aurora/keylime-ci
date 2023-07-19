@@ -31,7 +31,6 @@ sudo docker network create keylime-net
 # Create containers from the images with the appropriate mappings to allow sharing of data between containers
 sudo docker run -itd -v kl-data-vol:/var/lib/keylime -v kl-vrt-config-vol:/etc/keylime -v kl-vrt-src-vol:/usr/local/src/keylime --net keylime-net -p 8880:8880 -p 8881:8881 --restart unless-stopped --name keylime_verifier "gcr.io/project-keylime/keylime_verifier:$VRT_TAG"
 sudo docker run -itd -v kl-data-vol:/var/lib/keylime -v kl-vrt-config-vol:/etc/keylime -v kl-vrt-src-vol:/usr/local/src/keylime --net keylime-net -p 8890:8890 -p 8891:8891 --restart unless-stopped --name keylime_registrar "gcr.io/project-keylime/keylime_registrar:$VRT_TAG"
-sudo docker run -itd -v kl-data-vol:/var/lib/keylime -v kl-vrt-config-vol:/etc/keylime -v kl-vrt-src-vol:/usr/local/src/keylime --net keylime-net --restart unless-stopped --entrypoint /bin/bash --name keylime_tenant "gcr.io/project-keylime/keylime_tenant:$VRT_TAG"
 
 if [[ "$USE_SWTPM" == "true" ]]; then
   sudo docker run -itd --net keylime-net --restart unless-stopped --name swtpm "gcr.io/project-keylime/swtpm:latest"
