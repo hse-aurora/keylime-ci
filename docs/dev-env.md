@@ -96,7 +96,7 @@ The instructions below assume you are in the keylime-ci directory.
     To use GCP Container Registry, run these commands from your Unix terminal:
 
     ```
-    gcloud auth login --no-launch-browser
+    gcloud auth login --no-launch-browser --update-adc
     gcloud auth configure-docker
     ```
 
@@ -132,24 +132,17 @@ The instructions below assume you are in the keylime-ci directory.
     nano kl-vmware-image.pkrvars.hcl # Or editor of your choice
     ```
 
-    At minimum, you will likely wish to set `vrt_tag`, `a_tag`, and `oimg_label` to match `<res-label>` chosen in the previous step.
+    At minimum, you will likely wish to set `vrt_tag`, `a_tag`, and `oimg_label` to match `<res-label>` chosen in the previous step. You'll also want to set `gcloud_creds` to your `application_default_credentials.json` file on your system.
 
     > **Note** (**HPE employees**): It is suggested that you set `use_zscaler` and `use_proxy` to true.
 
 6. **Build the VMWare Image**
 
-    > **Note** (**WSL2 users**): The VMWare plugin for Packer expects to be on the same system where VMWare Workstation is installed, so you should perform this step from Powershell or the Command Prompt.
+    > **Note** (**WSL2 users**): The VMWare plugin for Packer expects to be on the same system where VMWare Workstation is installed, so you should perform these steps from Powershell or the Command Prompt.
 
-    First, if you are using GCP Container Registry, you will need to authenticate with GCP again, this time saving your session to be used as the [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials). You can do this by running:
-    
-    ```
-    gcloud auth application-default login --no-launch-browser
-    ```
-
-    Then, obtain the necessary Packer plugins and build your VM image by running:
+    First, obtain the necessary Packer plugins by running `packer init kl-vmware-image.pkr.hcl`. Then, run the following command to build your VM image:
 
     ```
-    packer init kl-vmware-image.pkr.hcl
     packer build -var-file="kl-vmware-image.pkrvars.hcl" kl-vmware-image.pkr.hcl
     ```
 
