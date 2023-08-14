@@ -74,6 +74,7 @@ The instructions below assume you are in the keylime-ci directory.
     When Packer builds your VM in subsequent steps, it is given an existing VMX file to use as the base. You can download and extract a Fedora 37 image by running these commands from your Unix terminal:
 
     ```
+    mkdir vm-templates
     wget https://hpe-keylime-public.storage.googleapis.com/vm-templates/keylime-fedora-template.tar.gz -O vm-templates/keylime-fedora-template.tar.gz
     tar xzvf vm-templates/keylime-fedora-template.tar.gz
     rm vm-templates/keylime-fedora-template.tar.gz
